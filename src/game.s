@@ -81,21 +81,24 @@ forever:
 nmi:
   ldx #$00 	; Set SPR-RAM address to 0
   stx $2003
-@loop:	lda hello, x 	; Load the hello message into SPR-RAM
+@loop:	
+  lda hello, x 	; Load the hello message into SPR-RAM
   sta $2004
   inx
-  cpx #$1c
+  cpx #$20
   bne @loop
   rti
 
 hello:
+  ; x pos, sprite, idk, y pos
   .byte $00, $00, $00, $00 	; Why do I need these here?
   .byte $00, $00, $00, $00
   .byte $6c, $00, $00, $6c
-  .byte $6c, $01, $00, $76
+  .byte $6c, $01, $01, $76
   .byte $6c, $02, $00, $80
   .byte $6c, $02, $00, $8A
   .byte $6c, $03, $00, $94
+  .byte $6c, $04, $00, $9e
 
 palettes:
   ; Background Palette
@@ -105,7 +108,7 @@ palettes:
   .byte $0f, $00, $00, $00
 
   ; Sprite Palette
-  .byte $0f, $20, $00, $00
+  .byte $20, $17, $14, $00
   .byte $0f, $00, $00, $00
   .byte $0f, $00, $00, $00
   .byte $0f, $00, $00, $00
@@ -150,4 +153,22 @@ palettes:
   .byte %11000011
   .byte %11100111
   .byte %01111110
+  .byte $00, $00, $00, $00, $00, $00, $00, $00
+
+  .byte %11000000	; ! (04)
+  .byte %11000000
+  .byte %11000000
+  .byte %11000000
+  .byte %00000000
+  .byte %00000000
+  .byte %11000000
+  .byte %11000000
+
+  .byte %00000011
+  .byte %00000011
+  .byte %00000011
+  .byte %00000011
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
   .byte $00, $00, $00, $00, $00, $00, $00, $00
