@@ -20,41 +20,16 @@
 .segment "CODE"
 
 reset:
-  sei		; disable IRQs
-  cld		; disable decimal mode
-  ldx #$40
-  stx $4017	; disable APU frame IRQ
-  ldx #$ff 	; Set up stack
-  txs		;  .
-  inx		; now X = 0
-  stx $2000	; disable NMI
-  stx $2001 	; disable rendering
-  stx $4010 	; disable DMC IRQs
-
-;; first wait for vblank to make sure PPU is ready
-vblankwait1:
-  bit $2002
-  bpl vblankwait1
-
-clear_memory:
+  ldx #$ff
+  txs
+  lda #$03
+  sta $2006
   lda #$00
-  sta $0000, x
-  sta $0100, x
-  sta $0200, x
-  sta $0300, x
-  sta $0400, x
-  sta $0500, x
-  sta $0600, x
-  sta $0700, x
-  inx
-  bne clear_memory
-
-;; second wait for vblank, PPU is ready after this
-vblankwait2:
-  bit $2002
-  bpl vblankwait2
+  sta $2006
+  jsr wait_for_blank
 
 main:
+; load palettes
 load_palettes:
   lda $2002
   lda #$3f
@@ -62,12 +37,12 @@ load_palettes:
   lda #$00
   sta $2006
   ldx #$00
-@loop:
+palette_loop:
   lda palettes, x
   sta $2007
   inx
   cpx #$20
-  bne @loop
+  bne palette_loop
 
 enable_rendering:
   lda #%10000000	; Enable NMI
@@ -89,16 +64,20 @@ nmi:
   bne @loop
   rti
 
+wait_for_blank:
+   bit $2002
+   bpl wait_for_blank
+   rts 
+
 hello:
   ; x pos, sprite, idk, y pos
   .byte $00, $00, $00, $00 	; Why do I need these here?
   .byte $00, $00, $00, $00
   .byte $6c, $00, $00, $6c
-  .byte $6c, $01, $01, $76
+  .byte $6c, $01, $00, $76
   .byte $6c, $02, $00, $80
-  .byte $6c, $02, $00, $8A
+  .byte $6c, $00, $00, $8a
   .byte $6c, $03, $00, $94
-  .byte $6c, $04, $00, $9e
 
 palettes:
   ; Background Palette
@@ -108,21 +87,31 @@ palettes:
   .byte $0f, $00, $00, $00
 
   ; Sprite Palette
-  .byte $20, $17, $14, $00
+  .byte $0f, $04, $11, $2a
   .byte $0f, $00, $00, $00
   .byte $0f, $00, $00, $00
   .byte $0f, $00, $00, $00
 
 ; Character memory
 .segment "CHARS"
-  .byte %11000011	; H (00)
-  .byte %11000011
-  .byte %11000011
+  .byte %00000000	; T (00)
   .byte %11111111
+  .byte %00011000
+  .byte %00011000
+  .byte %00011000
+  .byte %00011000
+  .byte %00011000
+  .byte %00011000
+
   .byte %11111111
-  .byte %11000011
-  .byte %11000011
-  .byte %11000011
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
+  .byte %00011000
+
   .byte $00, $00, $00, $00, $00, $00, $00, $00
 
   .byte %11111111	; E (01)
@@ -135,40 +124,31 @@ palettes:
   .byte %11111111
   .byte $00, $00, $00, $00, $00, $00, $00, $00
 
-  .byte %11000000	; L (02)
+  .byte %11111111	; S (02)
+  .byte %11111111
   .byte %11000000
-  .byte %11000000
-  .byte %11000000
-  .byte %11000000
-  .byte %11000000
+  .byte %11111111
+  .byte %11111111
+  .byte %00000011
   .byte %11111111
   .byte %11111111
   .byte $00, $00, $00, $00, $00, $00, $00, $00
 
-  .byte %01111110	; O (03)
-  .byte %11100111
+  .byte %11000000	; ! (03)
+  .byte %11000000
+  .byte %11000000
+  .byte %11000000
+  .byte %00000000
+  .byte %00000000
   .byte %11000011
   .byte %11000011
-  .byte %11000011
-  .byte %11000011
-  .byte %11100111
-  .byte %01111110
-  .byte $00, $00, $00, $00, $00, $00, $00, $00
 
-  .byte %11000000	; ! (04)
-  .byte %11000000
-  .byte %11000000
-  .byte %11000000
   .byte %00000000
   .byte %00000000
-  .byte %11000000
-  .byte %11000000
-
+  .byte %00000000
+  .byte %00000000
   .byte %00000011
   .byte %00000011
   .byte %00000011
   .byte %00000011
-  .byte %00000000
-  .byte %00000000
-  .byte %00000000
   .byte $00, $00, $00, $00, $00, $00, $00, $00
