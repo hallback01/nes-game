@@ -20,15 +20,25 @@
 .segment "CODE"
 
 reset:
-  ldx #$ff
-  txs
-  lda #$03
-  sta $2006
-  lda #$00
-  sta $2006
+
+  ; sei		; disable IRQs
+  cld		; disable decimal mode
+  ldx #$40
+  stx $4017	; disable APU frame IRQ
+  ldx #$ff 	; Set up stack
+  txs		;  .
+  inx		; now X = 0
+  stx $2000	; disable NMI
+  stx $2001 	; disable rendering
+  stx $4010 	; disable DMC IRQs
   jsr wait_for_blank
 
 main:
+
+  ; initialize memory
+  lda #1
+  sta $20
+
 ; load palettes
 load_palettes:
   lda $2002
@@ -50,10 +60,59 @@ enable_rendering:
   lda #%00010000	; Enable Sprites
   sta $2001
 
-forever:
-  jmp forever
+game_loop:
+
+  ; read controller input, data is saved on address 0x20
+  jsr poll_controller
+
+  ; input
+  lda #%00001000 
+  and $20
+  beq no_press
+has_press:
+  lda #1
+  sta $21
+  jmp outside
+no_press:
+  lda #0
+  sta $21
+outside:
+
+  jsr wait_for_blank
+  lda #%10000000
+  sta $2000
+
+  jmp game_loop
+
+; Bit order: A, B, SELECT, START, UP, DOWN, LEFT, RIGHT
+poll_controller: 
+
+  lda #1
+  sta $20 ; controller data pointer address
+  
+  ; send latch pulse to the primary controller
+  sta $4016
+  lda #0
+  sta $4016
+
+  ; read controller data
+controller_read_loop:
+  lda $4016
+  lsr a
+  rol $20
+  bcc controller_read_loop
+
+  rts
 
 nmi:
+
+  ; clear OAM data
+  lda #$00
+  sta $4014
+
+  lda #%00001000
+  and $20
+  beq no_up_press
   ldx #$00 	; Set SPR-RAM address to 0
   stx $2003
 @loop:	
@@ -62,12 +121,13 @@ nmi:
   inx
   cpx #$20
   bne @loop
+no_up_press:
   rti
 
 wait_for_blank:
-   bit $2002
-   bpl wait_for_blank
-   rts 
+  bit $2002
+  bpl wait_for_blank
+  rts 
 
 hello:
   ; x pos, sprite, idk, y pos
