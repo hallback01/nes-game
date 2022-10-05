@@ -21,7 +21,7 @@
 
 reset:
 
-  ; sei		; disable IRQs
+  sei		; disable IRQs
   cld		; disable decimal mode
   ldx #$40
   stx $4017	; disable APU frame IRQ
@@ -38,6 +38,8 @@ main:
   ; initialize memory
   lda #1
   sta $20
+  lda #16
+  sta $30 ; padel x position
 
 ; load palettes
 load_palettes:
@@ -61,26 +63,32 @@ enable_rendering:
   sta $2001
 
 game_loop:
-
-  ; read controller input, data is saved on address 0x20
+  
+; read controller input, data is saved on address 0x20
   jsr poll_controller
 
   ; input
-  lda #%00001000 
+  ldx #$0 ;direction vector
+  lda #%00000010 
   and $20
-  beq no_press
-has_press:
-  lda #1
-  sta $21
-  jmp outside
-no_press:
-  lda #0
-  sta $21
-outside:
+  beq no_left_press
+  dex
+no_left_press:
 
-  jsr wait_for_blank
-  lda #%10000000
-  sta $2000
+  lda #%00000001
+  and $20
+  beq no_right_press
+  inx
+no_right_press:
+
+  ; add data to position
+  clc
+  txa
+  adc $30
+  sta $30
+
+  ; wait for the ppu
+  jsr delay
 
   jmp game_loop
 
@@ -104,40 +112,51 @@ controller_read_loop:
 
   rts
 
-nmi:
+delay:
+  ldy #$10
+  ldx #$ff
+delay1:
+  nop
+  dex
+  bne delay1
+  ldx #$ff
+  dey
+  bne delay1
+  rts
 
-  ; clear OAM data
-  lda #$00
-  sta $4014
-
-  lda #%00001000
-  and $20
-  beq no_up_press
-  ldx #$00 	; Set SPR-RAM address to 0
-  stx $2003
-@loop:	
-  lda hello, x 	; Load the hello message into SPR-RAM
+draw:
+  ;draw paddle, we need to draw 2 sprites
+  ;sprite 1
+  lda #192  ;y
   sta $2004
-  inx
-  cpx #$20
-  bne @loop
-no_up_press:
-  rti
+  lda #$00  ;sprite
+  sta $2004
+  lda #$00  ;palette 0
+  sta $2004
+  lda $30   ;x
+  sta $2004
+
+  ;sprite 2
+  lda #192
+  sta $2004
+  lda #$00
+  sta $2004
+  lda #$00
+  sta $2004
+  lda $30
+  clc
+  sbc #7
+  sta $2004
+  rts
+
+nmi:
+  jsr draw
+  jmp game_loop
 
 wait_for_blank:
   bit $2002
   bpl wait_for_blank
-  rts 
-
-hello:
-  ; x pos, sprite, idk, y pos
-  .byte $00, $00, $00, $00 	; Why do I need these here?
-  .byte $00, $00, $00, $00
-  .byte $6c, $00, $00, $6c
-  .byte $6c, $01, $00, $76
-  .byte $6c, $02, $00, $80
-  .byte $6c, $00, $00, $8a
-  .byte $6c, $03, $00, $94
+  rts
 
 palettes:
   ; Background Palette
@@ -147,68 +166,29 @@ palettes:
   .byte $0f, $00, $00, $00
 
   ; Sprite Palette
-  .byte $0f, $04, $11, $2a
+  .byte $20, $0f, $11, $2a
   .byte $0f, $00, $00, $00
   .byte $0f, $00, $00, $00
   .byte $0f, $00, $00, $00
 
 ; Character memory
 .segment "CHARS"
-  .byte %00000000	; T (00)
-  .byte %11111111
-  .byte %00011000
-  .byte %00011000
-  .byte %00011000
-  .byte %00011000
-  .byte %00011000
-  .byte %00011000
-
-  .byte %11111111
+  ; Padel, sprite index 0
   .byte %00000000
   .byte %00000000
   .byte %00000000
   .byte %00000000
   .byte %00000000
   .byte %00000000
-  .byte %00011000
-
-  .byte $00, $00, $00, $00, $00, $00, $00, $00
-
-  .byte %11111111	; E (01)
-  .byte %11111111
-  .byte %11000000
-  .byte %11111100
-  .byte %11111100
-  .byte %11000000
   .byte %11111111
   .byte %11111111
-  .byte $00, $00, $00, $00, $00, $00, $00, $00
-
-  .byte %11111111	; S (02)
-  .byte %11111111
-  .byte %11000000
-  .byte %11111111
-  .byte %11111111
-  .byte %00000011
-  .byte %11111111
-  .byte %11111111
-  .byte $00, $00, $00, $00, $00, $00, $00, $00
-
-  .byte %11000000	; ! (03)
-  .byte %11000000
-  .byte %11000000
-  .byte %11000000
-  .byte %00000000
-  .byte %00000000
-  .byte %11000011
-  .byte %11000011
 
   .byte %00000000
   .byte %00000000
   .byte %00000000
   .byte %00000000
-  .byte %00000011
-  .byte %00000011
-  .byte %00000011
-  .byte %00000011
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
   .byte $00, $00, $00, $00, $00, $00, $00, $00
