@@ -28,6 +28,9 @@ number2 = $06
 ; tick string
 tick_string = $0010
 
+player_x = $0217
+player_y = $0214
+
 reset:
 
   sei		; disable IRQs
@@ -64,12 +67,20 @@ main:
   lda #1
   sta $20
   lda #16
-  sta $30 ; padel x position
+  sta player_x ; padel x position
+  lda #192
+  sta player_y ; padel y position
+  lda #0
+  sta $0215 ; padel sprite
+  sta $0216 ; padel background
 
   ; tick
   lda #0
   sta tick
   sta tick + 1
+
+  ;set string draw data
+  jsr set_string_data
 
 ; load palettes
 load_palettes:
@@ -115,11 +126,11 @@ no_right_press:
   ; add data to position
   clc
   txa
-  adc $30
-  sta $30
+  adc player_x
+  sta player_x
 
   ; wait for the ppu
-  jsr delay
+  jsr wait_for_blank
 
   jmp game_loop
 
@@ -179,9 +190,71 @@ draw:
   clc
   sbc #7
   sta $2004
+
+  rts
+
+set_string_data:
+
+  lda #08 ; Y value
+  sta $0200
+  sta $0204
+  sta $0208
+  sta $020c
+  sta $0210
+
+  lda #01 ; x value
+  sta $0203
+  lda #10
+  sta $0207
+  lda #19
+  sta $020b
+  lda #28
+  sta $020f
+  lda #37
+  sta $0213
+
+  lda #0 ; palette
+  sta $0202
+  sta $0206
+  sta $020a
+  sta $020e
+  sta $0212
+
+  rts
+
+update_string:
+  lda tick_string + 4
+  clc
+  sbc #'0' - 2
+  sta $0201
+  lda tick_string + 3
+  clc
+  sbc #'0' - 2
+  sta $0205
+  lda tick_string + 2
+  clc
+  sbc #'0' - 2
+  sta $0209
+  lda tick_string + 1
+  clc
+  sbc #'0' - 2
+  sta $020d
+  lda tick_string
+  clc
+  sbc #'0' - 2
+  sta $0211
   rts
 
 nmi:
+
+  lda $05
+  clc
+  adc #1
+  cmp #60
+  sta $05
+  bne dont_increase_tick
+  lda #0
+  sta $05
 
   clc
   lda tick
@@ -195,12 +268,13 @@ nmi:
 done:
 
   jsr ticks_into_numbers
+  jsr update_string
 
-  lda #$00
-  sta $2003
+dont_increase_tick:  
+  lda #$02
+  sta $4014
 
-  jsr draw
-  jmp game_loop
+  rti
 
 ticks_into_numbers:
 
@@ -224,18 +298,21 @@ ticks_into_numbers:
 
 num_not_done:
   jsr divide
-  lda remainder
-  cmp #0
-  beq num_done
-  lda #'0' - 1  
+
+  lda #'0' 
   ldy tick_string + 5
+  clc
   adc remainder
   sta tick_string, y
   iny
   sty tick_string + 5
-  jmp num_not_done
-num_done:
 
+  lda number1 + 1
+  cmp #0
+  bne num_not_done 
+  lda number1
+  cmp #0
+  bne num_not_done
   rts
 
 wait_for_blank:
@@ -312,4 +389,114 @@ palettes:
   .byte %00000000
   .byte %00000000
   .byte %00000000
+  .byte $00, $00, $00, $00, $00, $00, $00, $00
+
+  ; character '0', index 1
+  .byte %11111111
+  .byte %11111111
+  .byte %11000011
+  .byte %11000011
+  .byte %11000011
+  .byte %11000011
+  .byte %11111111
+  .byte %11111111
+  .byte $00, $00, $00, $00, $00, $00, $00, $00
+
+  ; character '1', index 2
+  .byte %01111000
+  .byte %01111000
+  .byte %00011000
+  .byte %00011000
+  .byte %00011000
+  .byte %00011000
+  .byte %11111111
+  .byte %11111111
+  .byte $00, $00, $00, $00, $00, $00, $00, $00
+
+  ; character '2', index 3
+  .byte %11111111
+  .byte %11111111
+  .byte %00000011
+  .byte %11111111
+  .byte %11111111
+  .byte %11000000
+  .byte %11111111
+  .byte %11111111
+  .byte $00, $00, $00, $00, $00, $00, $00, $00
+
+  ; character '3', index 4
+  .byte %11111111
+  .byte %11111111
+  .byte %00000011
+  .byte %00111111
+  .byte %00111111
+  .byte %00000011
+  .byte %11111111
+  .byte %11111111
+  .byte $00, $00, $00, $00, $00, $00, $00, $00
+
+  ; character '4', index 5
+  .byte %11000011
+  .byte %11000011
+  .byte %11000011
+  .byte %11111111
+  .byte %11111111
+  .byte %00000011
+  .byte %00000011
+  .byte %00000011
+  .byte $00, $00, $00, $00, $00, $00, $00, $00
+
+  ; character '5', index 6
+  .byte %11111111
+  .byte %11111111
+  .byte %11000000
+  .byte %11111111
+  .byte %11111111
+  .byte %00000011
+  .byte %11111111
+  .byte %11111111
+  .byte $00, $00, $00, $00, $00, $00, $00, $00
+
+  ; character '6', index 7
+  .byte %11111111
+  .byte %11111111
+  .byte %11000000
+  .byte %11111111
+  .byte %11111111
+  .byte %11000011
+  .byte %11111111
+  .byte %11111111
+  .byte $00, $00, $00, $00, $00, $00, $00, $00
+
+  ; character '7', index 8
+  .byte %11111111
+  .byte %11111111
+  .byte %00000011
+  .byte %00000011
+  .byte %00001100
+  .byte %00110000
+  .byte %00110000
+  .byte %11000000
+  .byte $00, $00, $00, $00, $00, $00, $00, $00
+
+  ; character '8', index 9
+  .byte %11111111
+  .byte %11111111
+  .byte %11000011
+  .byte %11111111
+  .byte %11111111
+  .byte %11000011
+  .byte %11111111
+  .byte %11111111
+  .byte $00, $00, $00, $00, $00, $00, $00, $00
+
+  ; character '9', index A
+  .byte %11111111
+  .byte %11111111
+  .byte %11000011
+  .byte %11111111
+  .byte %11111111
+  .byte %00000011
+  .byte %11111111
+  .byte %11111111
   .byte $00, $00, $00, $00, $00, $00, $00, $00
