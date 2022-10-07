@@ -6,11 +6,10 @@
   .byte $01, $00        ; mapper 0, vertical mirroring
 
 .segment "VECTORS"
-  ;; When an NMI happens (once per frame if enabled) the label nmi:
   .addr nmi
-  ;; When the processor first turns on or is reset, it will jump to the label reset:
   .addr reset
-  ;; External interrupt IRQ (unused)
+
+  ;; IRQ (unused)
   .addr 0
 
 ; "nes" linker config requires a STARTUP section, even if it's empty
@@ -18,6 +17,16 @@
 
 ; Main code segement for the program
 .segment "CODE"
+
+tick = $00
+
+; divide variables
+remainder = $02
+number1 = $04
+number2 = $06
+
+; tick string
+tick_string = $0010
 
 reset:
 
@@ -32,14 +41,35 @@ reset:
   stx $2001 	; disable rendering
   stx $4010 	; disable DMC IRQs
   jsr wait_for_blank
+  ldx #$00
+clear_memory:
+  lda #$ff
+  sta $0000, x
+  sta $0100, x
+  sta $0200, x
+  sta $0300, x
+  sta $0400, x
+  sta $0500, x
+  sta $0600, x
+  sta $0700, x
+  inx
+  bne clear_memory
 
 main:
 
+  lda #$00
+  sta $4014
+  
   ; initialize memory
   lda #1
   sta $20
   lda #16
   sta $30 ; padel x position
+
+  ; tick
+  lda #0
+  sta tick
+  sta tick + 1
 
 ; load palettes
 load_palettes:
@@ -57,9 +87,10 @@ palette_loop:
   bne palette_loop
 
 enable_rendering:
+  jsr wait_for_vblank
   lda #%10000000	; Enable NMI
   sta $2000
-  lda #%00010000	; Enable Sprites
+  lda #%00010110	; Enable Sprites
   sta $2001
 
 game_loop:
@@ -125,6 +156,7 @@ delay1:
   rts
 
 draw:
+
   ;draw paddle, we need to draw 2 sprites
   ;sprite 1
   lda #192  ;y
@@ -150,12 +182,101 @@ draw:
   rts
 
 nmi:
+
+  clc
+  lda tick
+  adc #1
+  sta tick
+  bcc done
+  clc
+  lda tick + 1
+  adc #1
+  sta tick + 1
+done:
+
+  jsr ticks_into_numbers
+
+  lda #$00
+  sta $2003
+
   jsr draw
   jmp game_loop
+
+ticks_into_numbers:
+
+  lda #0
+  sta tick_string
+  sta tick_string + 1
+  sta tick_string + 2
+  sta tick_string + 3
+  sta tick_string + 4
+  sta tick_string + 5 ; this is the string length
+
+  lda tick
+  sta number1
+  lda tick+1
+  sta number1 + 1
+
+  lda #10
+  sta number2
+  lda #0
+  sta number2 + 1
+
+num_not_done:
+  jsr divide
+  lda remainder
+  cmp #0
+  beq num_done
+  lda #'0' - 1  
+  ldy tick_string + 5
+  adc remainder
+  sta tick_string, y
+  iny
+  sty tick_string + 5
+  jmp num_not_done
+num_done:
+
+  rts
 
 wait_for_blank:
   bit $2002
   bpl wait_for_blank
+  rts
+
+wait_for_vblank:
+
+  lda $2002
+  and #%10000000
+  bne wait_for_vblank
+  rts
+
+divide: 
+
+  ; set remainder to zero
+  lda #0
+  sta remainder
+  sta remainder + 1
+
+  ; set up counter
+  ldx #16
+divide1:
+  asl number1
+  rol number1 + 1
+  rol remainder
+  rol remainder + 1
+  lda remainder
+  sec
+  sbc number2
+  tay
+  lda remainder + 1
+  sbc number2 +1
+  bcc divide2
+  sta remainder + 1
+  sty remainder
+  inc number1
+divide2:
+  dex
+  bne divide1
   rts
 
 palettes:
