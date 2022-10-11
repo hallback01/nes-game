@@ -31,6 +31,11 @@ tick_string = $0010
 ; random seed (2 bytes)
 random_seed = $000e
 
+; player movement
+player_dir_x =  $40
+player_dir_y =  $41
+movement_tick = $42
+
 player_x = $0217
 player_y = $0214
 
@@ -76,7 +81,10 @@ main:
   lda #0
   sta $0215 ; padel sprite
   sta $0216 ; padel background
-
+  lda #8
+  sta player_dir_x
+  lda #0 
+  sta player_dir_y
   ; initialize random seed
   lda #10
   sta random_seed
@@ -114,32 +122,71 @@ enable_rendering:
 
 game_loop:
   
-; read controller input, data is saved on address 0x20
+  ; read controller input, data is saved on address 0x20
   jsr poll_controller
 
+  ; check if we should move the player (according to the timer)
+  lda movement_tick
+  cmp #30
+  bmi no_movement
+ 
+
+  ; we are moving the player.
+  lda #0
+  sta movement_tick
+
+  ; x
+  lda player_x
+  clc
+  adc player_dir_x
+  sta player_x
+  ; y
+  lda player_y
+  clc
+  adc player_dir_y
+  sta player_y
+
+no_movement:
+
   ; input
-  ldx #$0 ;direction vector
   lda #%00000010 
   and $20
   beq no_left_press
-  dex
+  lda #0
+  sta player_dir_y
+  lda #$f8
+  sta player_dir_x
 no_left_press:
 
   lda #%00000001
   and $20
   beq no_right_press
-  inx
+  lda #0
+  sta player_dir_y
+  lda #8
+  sta player_dir_x
 no_right_press:
 
-  ; add data to position
-  clc
-  txa
-  adc player_x
-  sta player_x
+  lda #%00000100
+  and $20
+  beq no_down_press
+  lda #0
+  sta player_dir_x
+  lda #8
+  sta player_dir_y
+no_down_press:
+
+  lda #%00001000
+  and $20
+  beq no_up_press
+  lda #0
+  sta player_dir_x
+  lda #$f8
+  sta player_dir_y
+no_up_press:
 
   ; wait for the ppu
   jsr wait_for_blank
-
   jmp game_loop
 
 ; Bit order: A, B, SELECT, START, UP, DOWN, LEFT, RIGHT
@@ -172,33 +219,6 @@ delay1:
   ldx #$ff
   dey
   bne delay1
-  rts
-
-draw:
-
-  ;draw paddle, we need to draw 2 sprites
-  ;sprite 1
-  lda #192  ;y
-  sta $2004
-  lda #$00  ;sprite
-  sta $2004
-  lda #$00  ;palette 0
-  sta $2004
-  lda $30   ;x
-  sta $2004
-
-  ;sprite 2
-  lda #192
-  sta $2004
-  lda #$00
-  sta $2004
-  lda #$00
-  sta $2004
-  lda $30
-  clc
-  sbc #7
-  sta $2004
-
   rts
 
 set_string_data:
@@ -282,6 +302,14 @@ done:
   jsr update_string
 
 dont_increase_tick:  
+
+  ; increase movement tick timer
+  lda movement_tick
+  clc
+  adc #1
+  sta movement_tick
+
+  ; send sprite data to ppu
   lda #$02
   sta $4014
 
@@ -367,7 +395,7 @@ divide2:
   bne divide1
   rts
 
-; puts a random number between 0 and 255 in the A register
+; puts a random number between 0 and 255 in the A register (depending on the seed.. from the random seed variable)
 random:
   ldy #8
   lda random_seed
@@ -400,23 +428,14 @@ palettes:
 ; Character memory
 .segment "CHARS"
   ; Padel, sprite index 0
-  .byte %00000000
-  .byte %00000000
-  .byte %00000000
-  .byte %00000000
-  .byte %00000000
-  .byte %00000000
   .byte %11111111
   .byte %11111111
-
-  .byte %00000000
-  .byte %00000000
-  .byte %00000000
-  .byte %00000000
-  .byte %00000000
-  .byte %00000000
-  .byte %00000000
-  .byte %00000000
+  .byte %11111111
+  .byte %11111111
+  .byte %11111111
+  .byte %11111111
+  .byte %11111111
+  .byte %11111111
   .byte $00, $00, $00, $00, $00, $00, $00, $00
 
   ; character '0', index 1
