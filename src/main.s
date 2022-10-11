@@ -26,7 +26,7 @@ number1 = $04
 number2 = $06
 
 ; tick string
-tick_string = $0010
+number_string = $0010
 
 ; random seed (2 bytes)
 random_seed = $000e
@@ -251,23 +251,23 @@ set_string_data:
   rts
 
 update_string:
-  lda tick_string + 4
+  lda number_string + 4
   clc
   sbc #'0' - 2
   sta $0201
-  lda tick_string + 3
+  lda number_string + 3
   clc
   sbc #'0' - 2
   sta $0205
-  lda tick_string + 2
+  lda number_string + 2
   clc
   sbc #'0' - 2
   sta $0209
-  lda tick_string + 1
+  lda number_string + 1
   clc
   sbc #'0' - 2
   sta $020d
-  lda tick_string
+  lda number_string
   clc
   sbc #'0' - 2
   sta $0211
@@ -318,12 +318,12 @@ dont_increase_tick:
 ticks_into_numbers:
 
   lda #0
-  sta tick_string
-  sta tick_string + 1
-  sta tick_string + 2
-  sta tick_string + 3
-  sta tick_string + 4
-  sta tick_string + 5 ; this is the string length
+  sta number_string
+  sta number_string + 1
+  sta number_string + 2
+  sta number_string + 3
+  sta number_string + 4
+  sta number_string + 5 ; this is the string length
 
   lda tick
   sta number1
@@ -339,12 +339,12 @@ num_not_done:
   jsr divide
 
   lda #'0' 
-  ldy tick_string + 5
+  ldy number_string + 5
   clc
   adc remainder
-  sta tick_string, y
+  sta number_string, y
   iny
-  sty tick_string + 5
+  sty number_string + 5
 
   lda number1 + 1
   cmp #0
