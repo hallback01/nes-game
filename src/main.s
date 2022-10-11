@@ -28,6 +28,9 @@ number2 = $06
 ; tick string
 tick_string = $0010
 
+; random seed (2 bytes)
+random_seed = $000e
+
 player_x = $0217
 player_y = $0214
 
@@ -73,6 +76,11 @@ main:
   lda #0
   sta $0215 ; padel sprite
   sta $0216 ; padel background
+
+  ; initialize random seed
+  lda #10
+  sta random_seed
+  sta random_seed + 1
 
   ; tick
   lda #0
@@ -267,6 +275,9 @@ nmi:
   sta tick + 1
 done:
 
+  jsr random
+  sta $30
+
   jsr ticks_into_numbers
   jsr update_string
 
@@ -354,6 +365,23 @@ divide1:
 divide2:
   dex
   bne divide1
+  rts
+
+; puts a random number between 0 and 255 in the A register
+random:
+  ldy #8
+  lda random_seed
+
+random1:
+  asl
+  rol random_seed + 1
+  bcc random2
+  eor #$39
+random2:
+  dey
+  bne random1
+  sta random_seed
+  cmp #0
   rts
 
 palettes:
