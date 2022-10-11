@@ -115,9 +115,11 @@ palette_loop:
 
 enable_rendering:
   jsr wait_for_vblank
-  lda #%10000000	; Enable NMI
+  ; enable nmi
+  lda #%10000000
   sta $2000
-  lda #%00010110	; Enable Sprites
+  ; enable sprites, and the vertical first line for both the sprite and background
+  lda #%00010110
   sta $2001
 
 game_loop:
@@ -127,9 +129,8 @@ game_loop:
 
   ; check if we should move the player (according to the timer)
   lda movement_tick
-  cmp #30
-  bmi no_movement
- 
+  cmp #15
+  bmi no_movement 
 
   ; we are moving the player.
   lda #0
