@@ -35,6 +35,7 @@ random_seed = $000e
 player_dir_x =  $40
 player_dir_y =  $41
 movement_tick = $42
+tail_length = $43
 
 player_x = $0217
 player_y = $0214
@@ -81,10 +82,15 @@ main:
   lda #0
   sta $0215 ; padel sprite
   sta $0216 ; padel background
+  sta $0219
+  sta $021a
   lda #8
   sta player_dir_x
   lda #0 
   sta player_dir_y
+  
+  lda #32
+  sta tail_length
   ; initialize random seed
   lda #10
   sta random_seed
@@ -136,6 +142,10 @@ game_loop:
   lda #0
   sta movement_tick
 
+  ; move the tail first
+  jsr move_tail
+
+  ; move the head
   ; x
   lda player_x
   clc
@@ -190,7 +200,61 @@ no_up_press:
   jsr wait_for_blank
   jmp game_loop
 
-; Bit order: A, B, SELECT, START, UP, DOWN, LEFT, RIGHT
+; moves the tail.
+; loops backwards beginning at the very end of the tail
+move_tail:
+
+  lda tail_length
+  ldx #0
+:
+  inx
+  inx
+  inx
+  inx
+  sbc #1
+  cmp #0
+  bne :-
+  txa
+  tay
+  dey
+  dey
+  dey
+  dey 
+ 
+  lda tail_length
+next_cell:
+
+  ; check if we are at the beginning of the tail, if so, break the loop
+  cmp #0
+  beq tail_moved
+  sbc #1
+  pha
+ 
+  ; copy the next cell's position to this one
+  lda player_x, y
+  sta player_x, x
+
+  lda player_y, y
+  sta player_y, x
+
+  ; decrease x and y register by 4
+  dex
+  dex
+  dex
+  dex
+  dey
+  dey
+  dey
+  dey
+
+  ; we go to the next tail piece
+  pla
+  jmp next_cell
+
+tail_moved:
+  rts
+
+; bit order: A, B, SELECT, START, UP, DOWN, LEFT, RIGHT
 poll_controller: 
 
   lda #1
@@ -201,25 +265,13 @@ poll_controller:
   lda #0
   sta $4016
 
-  ; read controller data
+; read controller data
 controller_read_loop:
   lda $4016
   lsr a
   rol $20
   bcc controller_read_loop
 
-  rts
-
-delay:
-  ldy #$10
-  ldx #$ff
-delay1:
-  nop
-  dex
-  bne delay1
-  ldx #$ff
-  dey
-  bne delay1
   rts
 
 set_string_data:
@@ -276,6 +328,33 @@ update_string:
 
 nmi:
 
+  ; background testing
+  lda #0
+  sta $2001
+  lda #$20
+  sta $2006
+  lda #$e5
+  sta $2006
+  lda #2
+  sta $2007
+
+  lda #$20
+  sta $2006
+  lda #$00
+  sta $2006
+
+  lda $2007
+  lda $2007
+  sta $53
+
+  lda #%00011110
+  sta $2001
+
+  ; save the registers to the stack
+  sta $50
+  stx $51
+  sty $52
+
   lda $05
   clc
   adc #1
@@ -312,8 +391,14 @@ dont_increase_tick:
 
   ; send sprite data to ppu
   lda #$02
-  sta $4014
+  ;sta $4014
 
+  ; put back the from the stack to the registers
+  lda $50
+  ldx $51
+  ldy $52
+
+  ;return form interrupt
   rti
 
 ticks_into_numbers:
@@ -386,7 +471,7 @@ divide1:
   sbc number2
   tay
   lda remainder + 1
-  sbc number2 +1
+  sbc number2 + 1
   bcc divide2
   sta remainder + 1
   sty remainder
@@ -394,6 +479,10 @@ divide1:
 divide2:
   dex
   bne divide1
+  rts
+
+; multiply number1 with number2 and places the result in number1
+multiply:
   rts
 
 ; puts a random number between 0 and 255 in the A register (depending on the seed.. from the random seed variable)
@@ -415,13 +504,13 @@ random2:
 
 palettes:
   ; Background Palette
-  .byte $0f, $00, $00, $00
+  .byte $0f, $20, $11, $2a
   .byte $0f, $00, $00, $00
   .byte $0f, $00, $00, $00
   .byte $0f, $00, $00, $00
 
   ; Sprite Palette
-  .byte $20, $0f, $11, $2a
+  .byte $0f, $20, $11, $2a
   .byte $0f, $00, $00, $00
   .byte $0f, $00, $00, $00
   .byte $0f, $00, $00, $00
