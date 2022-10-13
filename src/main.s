@@ -140,6 +140,16 @@ enable_rendering:
   lda #%00011110
   sta $2001
 
+  ; fruit testing
+  lda #50
+  sta $0214
+  lda #$10
+  sta $0215
+  lda #1
+  sta $0216
+  lda #50
+  sta $0217  
+
 game_loop:
   
   ; read controller input, data is saved on address 0x20
@@ -764,7 +774,7 @@ palettes:
 
   ; Sprite Palette
   .byte $20, $0f, $11, $2a
-  .byte $0f, $00, $00, $00
+  .byte $0f, $07, $05, $0a
   .byte $0f, $00, $00, $00
   .byte $0f, $00, $00, $00
 
@@ -945,3 +955,26 @@ palettes:
   .byte %00000000
   .byte %11111111
   .byte $00, $00, $00, $00, $00, $00, $00, $00
+
+  ; fruit tile!! index 10
+  ; 0 0 -> bg
+  ; 1 0 -> dark red
+  ; 1 1 -> green
+  ; 0 1 -> red
+  .byte %00011000
+  .byte %00011100
+  .byte %00001000
+  .byte %00000001
+  .byte %00000001
+  .byte %00000001
+  .byte %10000011
+  .byte %01011110
+
+  .byte %00011000
+  .byte %01101010
+  .byte %11110111
+  .byte %11111110
+  .byte %11111110
+  .byte %11111110
+  .byte %01111100
+  .byte %00100000
