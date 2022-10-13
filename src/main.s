@@ -37,8 +37,8 @@ player_dir_y =  $41
 movement_tick = $42
 tail_length = $43
 
-player_x = $0217
-player_y = $0214
+player_x = $0300
+player_y = $0301
 
 reset:
 
@@ -76,21 +76,17 @@ main:
   lda #1
   sta $20
   lda #16
-  sta player_x ; padel x position
-  lda #192
-  sta player_y ; padel y position
-  lda #0
-  sta $0215 ; padel sprite
-  sta $0216 ; padel background
-  sta $0219
-  sta $021a
-  lda #8
+  sta player_x ; snake head x position
+  lda #16
+  sta player_y ; snake head y position
+  lda #1
   sta player_dir_x
   lda #0 
   sta player_dir_y
   
-  lda #32
+  lda #16
   sta tail_length
+
   ; initialize random seed
   lda #10
   sta random_seed
@@ -125,7 +121,7 @@ enable_rendering:
   lda #%10000000
   sta $2000
   ; enable sprites, and the vertical first line for both the sprite and background
-  lda #%00010110
+  lda #%00011110
   sta $2001
 
 game_loop:
@@ -165,7 +161,7 @@ no_movement:
   beq no_left_press
   lda #0
   sta player_dir_y
-  lda #$f8
+  lda #$ff
   sta player_dir_x
 no_left_press:
 
@@ -174,7 +170,7 @@ no_left_press:
   beq no_right_press
   lda #0
   sta player_dir_y
-  lda #8
+  lda #1
   sta player_dir_x
 no_right_press:
 
@@ -183,7 +179,7 @@ no_right_press:
   beq no_down_press
   lda #0
   sta player_dir_x
-  lda #8
+  lda #1
   sta player_dir_y
 no_down_press:
 
@@ -192,7 +188,7 @@ no_down_press:
   beq no_up_press
   lda #0
   sta player_dir_x
-  lda #$f8
+  lda #$ff
   sta player_dir_y
 no_up_press:
 
@@ -204,11 +200,13 @@ no_up_press:
 ; loops backwards beginning at the very end of the tail
 move_tail:
 
+  ; set the "update background" flag to "true"
+  lda #1
+  sta $32
+
   lda tail_length
   ldx #0
 :
-  inx
-  inx
   inx
   inx
   sbc #1
@@ -217,9 +215,13 @@ move_tail:
   txa
   tay
   dey
-  dey
-  dey
   dey 
+
+  ; save the last position, because we need to deactivate that background tile since there wont be a tail piece there after we move
+  lda player_x, x
+  sta $30
+  lda player_y, x
+  sta $31
  
   lda tail_length
 next_cell:
@@ -237,13 +239,9 @@ next_cell:
   lda player_y, y
   sta player_y, x
 
-  ; decrease x and y register by 4
+  ; decrease x and y register by 2
   dex
   dex
-  dex
-  dex
-  dey
-  dey
   dey
   dey
 
@@ -326,41 +324,92 @@ update_string:
   sta $0211
   rts
 
-nmi:
+; sets a background tile.
+; 80 = x
+; 81 = y
+; 82 = tile index
+set_background_tile:
+  ; $2000 + y * 32 + x
+  ; y * 32
+  lda $81
+  ldy #32
+  jsr multiply
 
-  ; background testing
-  lda #0
-  sta $2001
-  lda #$20
-  sta $2006
-  lda #$e5
-  sta $2006
-  lda #2
-  sta $2007
+  ; $2000 + (y*x)
+  sty number1
+  sta number1 + 1
 
   lda #$20
-  sta $2006
+  sta number2
   lda #$00
+  sta number2 + 1
+
+  jsr short_addition
+  
+  ; + x
+  lda $80
+  sta number2 + 1
+  lda #0
+  sta number2
+  jsr short_addition
+
+  lda number1
+  sta $2006
+  lda number1 + 1
   sta $2006
 
-  lda $2007
-  lda $2007
-  sta $53
+  lda $82
+  sta $2007
+  
+  rts
 
-  lda #%00011110
-  sta $2001
-
+nmi:
   ; save the registers to the stack
   sta $50
   stx $51
   sty $52
 
+  ; check if we should update background
+  lda $32
+  cmp #1
+  bne skip_background_render
+  lda #0
+  sta $32
+ 
+  ; update the snake in the background
+  ; first set the old tail tile to 0 again
+  lda $30
+  sta $80
+  lda $31
+  sta $81
+  lda #0
+  sta $82
+  jsr set_background_tile
+
+  ; then update the head piece (we don't actually need to update the rest of the snake)
+  ldx #0
+  lda #0
+  sta $70
+  lda #$0b
+  sta $82
+
+  lda $0301
+  sta $81
+  lda $0300
+  sta $80
+  jsr set_background_tile
+
+  ; set the scroll to zero
+  lda #0
+  sta $2005
+  sta $2005
+
+skip_background_render:
+  
+  inc $05
   lda $05
-  clc
-  adc #1
   cmp #60
-  sta $05
-  bne dont_increase_tick
+  bmi dont_increase_tick
   lda #0
   sta $05
 
@@ -391,7 +440,7 @@ dont_increase_tick:
 
   ; send sprite data to ppu
   lda #$02
-  ;sta $4014
+  sta $4014
 
   ; put back the from the stack to the registers
   lda $50
@@ -452,6 +501,44 @@ wait_for_vblank:
   bne wait_for_vblank
   rts
 
+; add number1 and number2 and puts the result in number1
+; both number1 and number2 are 16 bits wide
+short_addition:
+  pha
+  clc
+  lda number1
+  adc number2
+  sta number1
+  lda number1 + 1
+  adc number2 + 1
+  sta number1 + 1
+  pla
+  rts
+
+; multiplies A and Y and returns to those registers(a 16 bit value)
+multiply:
+  lsr
+  sta remainder
+  tya
+  beq mul_early_return
+  dey
+  sty remainder + 1
+  lda #0
+.repeat 8, i
+  .if i > 0
+    ror remainder
+  .endif
+  bcc :+
+  adc remainder + 1
+:
+  ror
+.endrepeat
+  tay
+  lda remainder
+  ror
+mul_early_return:
+  rts
+
 divide: 
 
   ; set remainder to zero
@@ -481,10 +568,6 @@ divide2:
   bne divide1
   rts
 
-; multiply number1 with number2 and places the result in number1
-multiply:
-  rts
-
 ; puts a random number between 0 and 255 in the A register (depending on the seed.. from the random seed variable)
 random:
   ldy #8
@@ -504,13 +587,13 @@ random2:
 
 palettes:
   ; Background Palette
-  .byte $0f, $20, $11, $2a
+  .byte $0f, $0f, $11, $2a
   .byte $0f, $00, $00, $00
   .byte $0f, $00, $00, $00
   .byte $0f, $00, $00, $00
 
   ; Sprite Palette
-  .byte $0f, $20, $11, $2a
+  .byte $20, $0f, $11, $2a
   .byte $0f, $00, $00, $00
   .byte $0f, $00, $00, $00
   .byte $0f, $00, $00, $00
@@ -518,14 +601,14 @@ palettes:
 ; Character memory
 .segment "CHARS"
   ; Padel, sprite index 0
-  .byte %11111111
-  .byte %11111111
-  .byte %11111111
-  .byte %11111111
-  .byte %11111111
-  .byte %11111111
-  .byte %11111111
-  .byte %11111111
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
   .byte $00, $00, $00, $00, $00, $00, $00, $00
 
   ; character '0', index 1
@@ -634,6 +717,17 @@ palettes:
   .byte %11111111
   .byte %11111111
   .byte %00000011
+  .byte %11111111
+  .byte %11111111
+  .byte $00, $00, $00, $00, $00, $00, $00, $00 ; character '9', index A
+
+  ; snake cell, index B
+  .byte %11111111
+  .byte %11111111
+  .byte %11111111
+  .byte %11111111
+  .byte %11111111
+  .byte %11111111
   .byte %11111111
   .byte %11111111
   .byte $00, $00, $00, $00, $00, $00, $00, $00
