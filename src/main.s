@@ -18,7 +18,7 @@
 ; Main code segement for the program
 .segment "CODE"
 
-tick = $00
+tick = $90
 
 ; divide variables
 remainder = $02
@@ -405,13 +405,14 @@ nmi:
   sta $2005
 
 skip_background_render:
-  
-  inc $05
-  lda $05
+ 
+  clc 
+  inc tick + 5
+  lda tick + 5
   cmp #60
   bmi dont_increase_tick
   lda #0
-  sta $05
+  sta tick + 5
 
   clc
   lda tick
