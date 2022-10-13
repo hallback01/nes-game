@@ -84,7 +84,7 @@ main:
   lda #0 
   sta player_dir_y
   
-  lda #3
+  lda #16
   sta tail_length
 
   ; initialize random seed
@@ -173,6 +173,10 @@ game_loop:
   ; this also moves the game to the gameover state
   jsr check_border_collision
 
+  ; check for tail collision
+  ; this moves to the gameover state too
+  jsr check_tail_collision
+
 no_movement:
 
   ; input
@@ -255,11 +259,29 @@ move_tail:
   dey 
 
   ; save the last position, because we need to deactivate that background tile since there wont be a tail piece there after we move
+  ; but only if the head isn't on this position. Sometimes when the head precisely hits one tile before the end, it may delete it if
+  ; this is set..
+  lda player_x
+  cmp player_x, x
+  bne not_equal
+  lda player_y
+  cmp player_y, y
+  bne not_equal
+
+  ; they were equal
+  lda #0
+  sta $30
+  sta $31
+  jmp skip_last_tail
+
+; they weren't on the same position
+not_equal:
   lda player_x, x
   sta $30
   lda player_y, x
   sta $31
  
+skip_last_tail:
   lda tail_length
 next_cell:
 
@@ -285,6 +307,36 @@ next_cell:
   ; we go to the next tail piece
   pla
   jmp next_cell
+
+check_tail_collision:
+
+  lda tail_length
+  sta $a0
+  ldx #2
+tail_collision_loop:
+  dec $a0
+  lda $a0
+  cmp #0
+  beq done_collision_loop
+
+  ; now check for collision for every tail cell
+  lda player_x, x
+  cmp player_x
+  bne no_tail_collision
+  lda player_y, x
+  cmp player_y
+  beq tail_collision
+
+no_tail_collision:
+  ; no collision detected, continue
+  inx
+  inx
+  jmp tail_collision_loop
+tail_collision:
+  jmp reset
+
+done_collision_loop:
+  rts
 
 check_border_collision:
 
@@ -441,9 +493,9 @@ update_string:
   rts
 
 ; sets a background tile.
-; 80 = x
-; 81 = y
-; 82 = tile index
+; $80 = x
+; $81 = y
+; $82 = tile index
 set_background_tile:
   ; $2000 + y * 32 + x
   ; y * 32
