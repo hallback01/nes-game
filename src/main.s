@@ -179,6 +179,11 @@ no_movement:
   lda #%00000010 
   and $20
   beq no_left_press
+
+  ; make sure we cannot go back..
+  lda player_dir_x
+  cmp #1
+  beq no_left_press
   lda #0
   sta player_dir_y
   lda #$ff
@@ -187,6 +192,10 @@ no_left_press:
 
   lda #%00000001
   and $20
+  beq no_right_press
+
+  lda player_dir_x
+  cmp #$ff
   beq no_right_press
   lda #0
   sta player_dir_y
@@ -197,6 +206,10 @@ no_right_press:
   lda #%00000100
   and $20
   beq no_down_press
+ 
+  lda player_dir_y
+  cmp #$ff
+  beq no_down_press
   lda #0
   sta player_dir_x
   lda #1
@@ -205,6 +218,10 @@ no_down_press:
 
   lda #%00001000
   and $20
+  beq no_up_press
+
+  lda player_dir_y
+  cmp #1
   beq no_up_press
   lda #0
   sta player_dir_x
