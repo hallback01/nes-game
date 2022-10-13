@@ -157,6 +157,10 @@ game_loop:
   adc player_dir_y
   sta player_y
 
+  ; check for border collision
+  ; this also moves the game to the gameover state
+  jsr check_border_collision
+
 no_movement:
 
   ; input
@@ -252,6 +256,33 @@ next_cell:
   ; we go to the next tail piece
   pla
   jmp next_cell
+
+check_border_collision:
+
+  ; check left
+  lda player_x
+  cmp #0
+  beq collision
+ 
+  ; check right
+  cmp #31
+  beq collision
+
+  ; check top
+  lda player_y
+  cmp #3
+  beq collision
+
+  ; check bottom
+  cmp #28
+  beq collision
+ 
+  jmp no_collision
+collision:
+
+  jmp reset
+no_collision:
+  rts
 
 tail_moved:
   rts
