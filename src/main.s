@@ -118,6 +118,18 @@ palette_loop:
 enable_rendering:
   jsr wait_for_vblank
 
+  ; clear background
+  lda #$20
+  sta $80
+  lda #0
+  sta $81
+  lda #0
+  sta $82
+  jsr set_background_tile
+.repeat $3bf
+  sta $2007
+.endrepeat
+
   ; before we enable the ppu, update the border on the background
   jsr set_border_background
 
