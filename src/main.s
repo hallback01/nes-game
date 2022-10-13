@@ -265,7 +265,7 @@ move_tail:
   cmp player_x, x
   bne not_equal
   lda player_y
-  cmp player_y, y
+  cmp player_y, x
   bne not_equal
 
   ; they were equal
