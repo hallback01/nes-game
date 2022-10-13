@@ -84,11 +84,11 @@ main:
   lda #0 
   sta player_dir_y
   
-  lda #16
+  lda #3
   sta tail_length
 
   ; initialize random seed
-  lda #10
+  lda #20
   sta random_seed
   sta random_seed + 1
 
@@ -117,6 +117,10 @@ palette_loop:
 
 enable_rendering:
   jsr wait_for_vblank
+
+  ; before we enable the ppu, update the border on the background
+  jsr set_border_background
+
   ; enable nmi
   lda #%10000000
   sta $2000
@@ -252,6 +256,58 @@ next_cell:
 tail_moved:
   rts
 
+set_border_background:
+
+  ; bottom border
+  lda #0
+  sta $80
+  lda #28
+  sta $81
+  lda #$0e
+  sta $82
+.repeat 30
+  inc $80
+  jsr set_background_tile
+.endrepeat
+
+  ; top border
+  lda #0
+  sta $80
+  lda #3
+  sta $81
+  lda #$0f
+  sta $82
+.repeat 30
+  inc $80
+  jsr set_background_tile
+.endrepeat
+
+  ; left border
+  lda #0
+  sta $80
+  lda #3
+  sta $81
+  lda #$0c
+  sta $82
+.repeat 24
+  inc $81
+  jsr set_background_tile
+.endrepeat
+
+  ; right border
+  lda #31
+  sta $80
+  lda #3
+  sta $81
+  lda #$0d
+  sta $82
+.repeat 24
+  inc $81
+  jsr set_background_tile
+.endrepeat
+
+  rts
+
 ; bit order: A, B, SELECT, START, UP, DOWN, LEFT, RIGHT
 poll_controller: 
 
@@ -373,6 +429,7 @@ nmi:
   lda $32
   cmp #1
   bne skip_background_render
+
   lda #0
   sta $32
  
@@ -730,5 +787,49 @@ palettes:
   .byte %11111111
   .byte %11111111
   .byte %11111111
+  .byte %11111111
+  .byte $00, $00, $00, $00, $00, $00, $00, $00
+
+  ; border tiles, index C
+  .byte %00000001
+  .byte %00000001
+  .byte %00000001
+  .byte %00000001
+  .byte %00000001
+  .byte %00000001
+  .byte %00000001
+  .byte %00000001
+  .byte $00, $00, $00, $00, $00, $00, $00, $00
+
+  ; border tiles, index D
+  .byte %10000000
+  .byte %10000000
+  .byte %10000000
+  .byte %10000000
+  .byte %10000000
+  .byte %10000000
+  .byte %10000000
+  .byte %10000000
+  .byte $00, $00, $00, $00, $00, $00, $00, $00
+
+  ; border tiles, index E
+  .byte %11111111
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
+  .byte $00, $00, $00, $00, $00, $00, $00, $00
+
+  ; border tiles, index F
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
+  .byte %00000000
   .byte %11111111
   .byte $00, $00, $00, $00, $00, $00, $00, $00
