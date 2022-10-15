@@ -123,7 +123,7 @@ palette_loop:
   bne palette_loop
 
 enable_rendering:
-  jsr wait_for_vblank
+  jsr wait_for_blank
 
   ; clear background
   lda #$20
@@ -763,13 +763,6 @@ num_not_done:
 wait_for_blank:
   bit $2002
   bpl wait_for_blank
-  rts
-
-wait_for_vblank:
-
-  lda $2002
-  and #%10000000
-  bne wait_for_vblank
   rts
 
 ; add number1 and number2 and puts the result in number1
