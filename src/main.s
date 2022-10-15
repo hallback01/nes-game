@@ -40,6 +40,10 @@ tail_length = $43
 player_x = $0300
 player_y = $0301
 
+; fruit position
+fruit_x = $02f0
+fruit_y = $02f1
+
 reset:
 
   sei		; disable IRQs
@@ -84,13 +88,16 @@ main:
   lda #0 
   sta player_dir_y
   
-  lda #16
+  lda #3
   sta tail_length
 
   ; initialize random seed
   lda #20
   sta random_seed
   sta random_seed + 1
+
+  ; set start fruit position
+  jsr update_fruit_position 
 
   ; tick
   lda #0
@@ -140,18 +147,14 @@ enable_rendering:
   lda #%00011110
   sta $2001
 
-  ; fruit testing
-  lda #50
-  sta $0214
+  ; fruit palette and sprite
   lda #$10
   sta $0215
   lda #1
   sta $0216
-  lda #50
-  sta $0217  
 
 game_loop:
-  
+   
   ; read controller input, data is saved on address 0x20
   jsr poll_controller
 
@@ -186,6 +189,10 @@ game_loop:
   ; check for tail collision
   ; this moves to the gameover state too
   jsr check_tail_collision
+
+  ; check for fruit collision
+  ; this also increases the score, tail length and changes the fruit position on collision
+  jsr check_fruit_collision
 
 no_movement:
 
@@ -297,7 +304,7 @@ next_cell:
 
   ; check if we are at the beginning of the tail, if so, break the loop
   cmp #0
-  beq tail_moved
+  beq done_moving_tail
   sbc #1
   pha
  
@@ -317,6 +324,8 @@ next_cell:
   ; we go to the next tail piece
   pla
   jmp next_cell
+done_moving_tail:
+  rts
 
 check_tail_collision:
 
@@ -375,7 +384,73 @@ collision:
 no_collision:
   rts
 
-tail_moved:
+check_fruit_collision:
+
+  lda player_x
+  cmp fruit_x
+  bne no_fruit_collision
+  lda player_y
+  cmp fruit_y
+  bne no_fruit_collision
+  ; we collided!
+  jsr update_fruit_position
+  inc tail_length
+
+no_fruit_collision:
+  rts
+
+update_fruit_position:
+
+not_satisfied:
+  ; first get a new fruit position
+  jsr random
+  ; bitshfit divide by 8
+  clc
+  ror
+  ror 
+  ror
+  sta fruit_x
+  jsr random
+  clc
+  ror
+  ror
+  ror 
+  sta fruit_y
+
+  ; next make sure that it's inside the border
+  lda fruit_x
+  cmp #1
+  bmi not_satisfied
+  cmp #30
+  bpl not_satisfied
+  lda fruit_y
+  cmp #4
+  bmi not_satisfied
+  cmp #27
+  bpl not_satisfied
+
+  ; next make sure that it's not colliding with the snake
+
+  ; convert the new fruit position to the correct sprite position(basically multiplying with 8, bitshift the value 3 times)
+  lda fruit_x
+  clc
+  rol
+  clc
+  rol
+  clc 
+  rol
+  sta $0217
+
+  lda fruit_y
+  clc
+  rol
+  clc
+  rol
+  clc
+  rol
+  sta $0214
+  dec $0214
+
   rts
 
 set_border_background:
@@ -510,12 +585,28 @@ set_background_tile:
   ; $2000 + y * 32 + x
   ; y * 32
   lda $81
-  ldy #32
-  jsr multiply
+  sta number1
+  lda #0
+  sta number1 + 1
+
+  ldx $81
+  ldy #0
+
+  ; since it's 32, we can just shift the byte 5 times to the left(2^5 = 32), and we need two bytes for this
+  ; so the x and y registers are used for this.
+.repeat 5
+  clc
+  txa 
+  rol
+  tax
+  tya
+  rol
+  tay
+.endrepeat
 
   ; $2000 + (y*x)
   sty number1
-  sta number1 + 1
+  stx number1 + 1
 
   lda #$20
   sta number2
@@ -693,30 +784,6 @@ short_addition:
   adc number2 + 1
   sta number1 + 1
   pla
-  rts
-
-; multiplies A and Y and returns to those registers(a 16 bit value)
-multiply:
-  lsr
-  sta remainder
-  tya
-  beq mul_early_return
-  dey
-  sty remainder + 1
-  lda #0
-.repeat 8, i
-  .if i > 0
-    ror remainder
-  .endif
-  bcc :+
-  adc remainder + 1
-:
-  ror
-.endrepeat
-  tay
-  lda remainder
-  ror
-mul_early_return:
   rts
 
 divide: 
