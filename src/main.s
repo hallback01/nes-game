@@ -1,23 +1,16 @@
 .segment "HEADER"
-  ; .byte "NES", $1A      ; iNES header identifier
   .byte $4E, $45, $53, $1A
-  .byte 2               ; 2x 16KB PRG code
-  .byte 1               ; 1x  8KB CHR data
-  .byte $01, $00        ; mapper 0, vertical mirroring
+  .byte 2
+  .byte 1
+  .byte $01, $00
 
 .segment "VECTORS"
   .addr nmi
   .addr reset
 
-  ;; IRQ (unused)
-  .addr 0
-
-; "nes" linker config requires a STARTUP section, even if it's empty
 .segment "STARTUP"
 
-; Main code segement for the program
 .segment "CODE"
-
 tick = $90
 
 ; divide variables
