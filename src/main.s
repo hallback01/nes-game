@@ -425,6 +425,20 @@ not_satisfied:
   bpl not_satisfied
 
   ; next make sure that it's not colliding with the snake
+  ldx tail_length
+continue_tail_check:
+  lda player_x, x
+  cmp fruit_x
+  beq not_satisfied
+  lda player_y, x
+  cmp fruit_y
+  beq not_satisfied
+
+  ; else, continue loop
+  dex
+  txa
+  cmp #0
+  bne continue_tail_check
 
   ; convert the new fruit position to the correct sprite position(basically multiplying with 8, bitshift the value 3 times)
   lda fruit_x
