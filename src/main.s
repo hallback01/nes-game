@@ -2,7 +2,7 @@
   .byte $4E, $45, $53, $1A
   .byte 2
   .byte 1
-  .byte $01, $00
+  .byte $00, $00
 
 .segment "VECTORS"
   .addr nmi
@@ -11,14 +11,14 @@
 .segment "STARTUP"
 
 .segment "CODE"
-tick = $90
+score = $90
 
 ; divide variables
 remainder = $02
 number1 = $04
 number2 = $06
 
-; tick string
+; score string, 0x0015 is the string length
 number_string = $0010
 
 ; random seed (2 bytes)
@@ -92,13 +92,14 @@ main:
   ; set start fruit position
   jsr update_fruit_position 
 
-  ; tick
-  lda #0
-  sta tick
-  sta tick + 1
-
+  ; score
+  lda #$ff
+  sta score
+  sta score + 1
+  
   ;set string draw data
   jsr set_string_data
+  jsr increase_score
 
 ; load palettes
 load_palettes:
@@ -388,6 +389,7 @@ check_fruit_collision:
   ; we collided!
   jsr update_fruit_position
   inc tail_length
+  jsr increase_score 
 
 no_fruit_collision:
   rts
@@ -520,23 +522,42 @@ controller_read_loop:
 
 set_string_data:
 
-  lda #08 ; Y value
+  lda #18 ; Y value
   sta $0200
   sta $0204
   sta $0208
   sta $020c
   sta $0210
 
-  lda #01 ; x value
-  sta $0203
-  lda #10
-  sta $0207
-  lda #19
-  sta $020b
-  lda #28
-  sta $020f
-  lda #37
+  ; compute the string length 
+  ldy #0
+  ldx number_string + 5
+string_addition:
+  dex
+  tya
+  adc #9
+  tay
+  txa
+  cmp #0
+  bne string_addition
+  ; then divide by two to get half of the string length(by bitshifting to the right)
+  tya
+  clc
+  ror
+  ; then add half of the screen width to start at the middle
+  adc #$80
+
+  ; x values
+  sbc #9
   sta $0213
+  sbc #9
+  sta $020f
+  sbc #9
+  sta $020b
+  sbc #9
+  sta $0207
+  sbc #9
+  sta $0203
 
   lda #0 ; palette
   sta $0202
@@ -625,6 +646,29 @@ set_background_tile:
   
   rts
 
+reset_score:
+  lda #0
+  sta score
+  sta score + 1
+  rts
+
+increase_score:
+  clc
+  lda score
+  adc #1
+  sta score
+  bcc done_increasing_score
+  clc
+  lda score + 1
+  adc #1
+  sta score + 1
+done_increasing_score:
+  ; convert into numbers and update the string
+  jsr score_into_numbers
+  jsr update_string
+  jsr set_string_data
+  rts
+
 nmi:
   ; save the registers to the stack
   sta $50
@@ -668,33 +712,6 @@ nmi:
   sta $2005
 
 skip_background_render:
- 
-  clc 
-  inc tick + 5
-  lda tick + 5
-  cmp #60
-  bmi dont_increase_tick
-  lda #0
-  sta tick + 5
-
-  clc
-  lda tick
-  adc #1
-  sta tick
-  bcc done
-  clc
-  lda tick + 1
-  adc #1
-  sta tick + 1
-done:
-
-  jsr random
-  sta $30
-
-  jsr ticks_into_numbers
-  jsr update_string
-
-dont_increase_tick:  
 
   ; increase movement tick timer
   lda movement_tick
@@ -714,7 +731,7 @@ dont_increase_tick:
   ;return form interrupt
   rti
 
-ticks_into_numbers:
+score_into_numbers:
 
   lda #0
   sta number_string
@@ -724,9 +741,9 @@ ticks_into_numbers:
   sta number_string + 4
   sta number_string + 5 ; this is the string length
 
-  lda tick
+  lda score
   sta number1
-  lda tick+1
+  lda score+1
   sta number1 + 1
 
   lda #10
